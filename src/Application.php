@@ -59,8 +59,7 @@ class Application
                 'asKV',
                 'UTF-8'
             );
-            if (strpos($text, 'ホモ') !== false ||
-                    stripos($text, 'homo') !== false) {
+            if (preg_match('/homo|[ホほ][モも]/ui', $text)) {
                 ++$homoCount;
             }
             $t = strtotime($tweet->created_at);
