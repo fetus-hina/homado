@@ -8,3 +8,10 @@ twitter:
 
 target:
     id: "949438177"
+    words:
+        -
+            match: "/homo|[ホほ][モも]/ui"
+            format: "ちょまどさんは直近{totalCount}ツイート中{matchCount}ツイート、平均{avgMin}分ごとにホモとつぶやいています（ホモ率{ratio}%）"
+        -
+            match: "/美少女/"
+            format: "ちょまどさんは直近{totalCount}ツイート中{matchCount}ツイート、平均{avgMin}分ごとに美少女とつぶやいています（美少女率{ratio}%）"

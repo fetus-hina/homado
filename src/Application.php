@@ -16,28 +16,51 @@ class Application
 
     public function run()
     {
-        $homoInfo = $this->countHomo();
-        if ($homoInfo['homoCount'] < 1) {
-            // つまらん
+        $now = time();
+        $tweetList = $this->getTweetList();
+        if (empty($tweetList)) {
             return;
         }
+        $oldestTweetAt = min(array_map(
+            function ($tweet) {
+                return $tweet['at'];
+            },
+            $tweetList
+        ));
 
-        $message = sprintf(
-            'ちょまどさんは直近%dツイート中%dツイート、平均%.1f分ごとにホモとつぶやいています（ホモ率%.1f%%）',
-            $homoInfo['tweets'],
-            $homoInfo['homoCount'],
-            $homoInfo['homoInterval'] / 60,
-            $homoInfo['homoCount'] / $homoInfo['tweets'] * 100
-        );
+        foreach ($this->config->getTargetWords() as $targetWord) {
+            $matchCount = 0;
+            foreach ($tweetList as $tweet) {
+                if ($targetWord->isMatch($tweet['text'])) {
+                    ++$matchCount;
+                }
+            }
+            if ($matchCount > 0) {
+                $replace = [
+                    'totalCount' => count($tweetList),
+                    'matchCount' => $matchCount,
+                    'avgMin'     => number_format(($now - $oldestTweetAt) / $matchCount / 60, 1, '.', ''),
+                    'ratio'      => number_format($matchCount * 100 / count($tweetList), 1, '.', ''),
+                ];
+                $message = preg_replace_callback(
+                    '/\{([[:alnum:]]+)\}/',
+                    function ($match) use ($replace) {
+                        return isset($replace[$match[1]])
+                            ? $replace[$match[1]]
+                            : $match[0];
+                    },
+                    $targetWord->getFormat()
+                );
 
-        $this->getTwitterClient()->post('statuses/update', ['status' => $message]);
+                $this->getTwitterClient()->post('statuses/update', ['status' => $message]);
+            }
+        }
     }
 
-    private function countHomo()
+    // returns array<['text' => ..., 'at' => int]>
+    private function getTweetList()
     {
-        $client = $this->getTwitterClient();
-        $now = time();
-        $list = $client->get(
+        $list = $this->getTwitterClient()->get(
             'statuses/user_timeline',
             [
                 'user_id' => $this->config->getTargetId(),
@@ -50,33 +73,19 @@ class Application
         if (!is_array($list) || empty($list)) {
             throw new RuntimeError();
         }
-        $homoCount = 0;
-        $firstTweetAt = false;
-        $homoInterval = null;
-        foreach ($list as $tweet) {
-            $text = mb_convert_kana(
-                Normalizer::normalize($tweet->text, Normalizer::FORM_C),
-                'asKV',
-                'UTF-8'
-            );
-            if (preg_match('/homo|[ホほ][モも]/ui', $text)) {
-                ++$homoCount;
-            }
-            $t = strtotime($tweet->created_at);
-            if ($firstTweetAt === false || $firstTweetAt > $t) {
-                $firstTweetAt = $t;
-            }
-        }
-        
-        if ($homoCount > 0 && $firstTweetAt !== false) {
-            $homoInterval = ($now - $firstTweetAt) / $homoCount;
-        }
-
-        return [
-            'tweets' => count($list),
-            'homoCount' => $homoCount,
-            'homoInterval' => $homoInterval,
-        ];
+        return array_map(
+            function (\stdClass $tweet) {
+                $text = html_entity_decode($tweet->text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $text = Normalizer::normalize($text, Normalizer::FORM_C);
+                $text = mb_convert_kana($text, 'asKV', 'UTF-8');
+                $text = preg_replace('/[[:space:]]+/s', ' ', $text);
+                return [
+                    'text' => $text,
+                    'at' => strtotime($tweet->created_at)
+                ];
+            },
+            $list
+        );
     }
 
     private function getTwitterClient()
