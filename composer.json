@@ -1,0 +1,29 @@
+{
+    "name": "jp3cki/homado",
+    "type": "library",
+    "description": "homo counter",
+    "license": "MIT",
+    "version": "0.1.0",
+    "authors": [
+        {
+            "name": "AIZAWA Hina",
+            "email": "hina@bouhime.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0",
+        "ext-intl": "*",
+        "ext-mbstring": "*",
+        "ext-pcre": "*",
+        "abraham/twitteroauth": "^0.5.3",
+        "symfony/yaml": "^2.7"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "^2.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "jp3cki\\homado\\": "src"
+        }
+    }
+}

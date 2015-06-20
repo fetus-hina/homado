@@ -1,0 +1,10 @@
+twitter:
+    consumer:
+        key: CONSUMER KEY
+        secret: CONSUMER SECRET
+    user:
+        token: USER TOKEN
+        secret: SECRET
+
+target:
+    id: "949438177"
