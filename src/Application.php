@@ -4,6 +4,8 @@ namespace jp3cki\homado;
 use Normalizer;
 use RuntimeError;
 use Abraham\TwitterOAuth\TwitterOAuth;
+use jp3cki\homado\config\Config;
+use jp3cki\homado\config\TargetWord as TargetWordConfig;
 
 class Application
 {
@@ -16,54 +18,98 @@ class Application
 
     public function run()
     {
-        $now = time();
-        $tweetList = $this->getTweetList();
-        if (empty($tweetList)) {
-            return;
-        }
-        $oldestTweetAt = min(array_map(
-            function ($tweet) {
-                return $tweet['at'];
-            },
-            $tweetList
-        ));
-
-        foreach ($this->config->getTargetWords() as $targetWord) {
-            $matchCount = 0;
-            foreach ($tweetList as $tweet) {
-                if ($targetWord->isMatch($tweet['text'])) {
-                    ++$matchCount;
-                }
-            }
-            if ($matchCount > 0) {
-                $replace = [
-                    'totalCount' => count($tweetList),
-                    'matchCount' => $matchCount,
-                    'avgMin'     => number_format(($now - $oldestTweetAt) / $matchCount / 60, 1, '.', ''),
-                    'ratio'      => number_format($matchCount * 100 / count($tweetList), 1, '.', ''),
-                ];
-                $message = preg_replace_callback(
-                    '/\{([[:alnum:]]+)\}/',
-                    function ($match) use ($replace) {
-                        return isset($replace[$match[1]])
-                            ? $replace[$match[1]]
-                            : $match[0];
-                    },
-                    $targetWord->getFormat()
-                );
-
-                $this->getTwitterClient()->post('statuses/update', ['status' => $message]);
-            }
+        $twitter = $this->getTwitterClient();
+        foreach ($this->makeTweets() as $message) {
+            $twitter->post('statuses/update', ['status' => $message]);
         }
     }
 
+    private function makeTweets()
+    {
+        $targetConfig = $this->config->getTargetConfig();
+
+        $tweetList = $this->getTweetList($targetConfig->getTargetId());
+        if (empty($tweetList)) {
+            return [];
+        }
+
+        $ret = [];
+        foreach ($targetConfig->getTargetWords() as $targetWord) {
+            $text = $this->makeTweet($tweetList, $targetWord);
+            if ($text !== false && $text != '') {
+                $ret[] = $text;
+            }
+        }
+        return $ret;
+    }
+
+    private function makeTweet(array $tweets, TargetWordConfig $word)
+    {
+        $matchedTweets = array_filter(
+            $tweets,
+            function ($tweet) use ($word) {
+                return $word->isMatch($tweet['text']);
+            }
+        );
+        if (!empty($matchedTweets)) {
+            $firstMatchedAt = min(
+                array_map(
+                    function ($tweet) {
+                        return $tweet['at'];
+                    },
+                    $matchedTweets
+                )
+            );
+            $lastMatchedAt = max(
+                array_map(
+                    function ($tweet) {
+                        return $tweet['at'];
+                    },
+                    $matchedTweets
+                )
+            );
+        } else {
+            $firstMatchedAt = null;
+            $lastMatchedAt = null;
+        }
+
+        $matchedCount = count($matchedTweets);
+        $replace = [
+            'totalCount' => count($tweets),
+            'matchCount' => $matchedCount,
+            'avgMin' => $matchedCount >= 2
+                ? number_format(
+                    ($lastMatchedAt - $firstMatchedAt) / $matchedCount / 60,
+                    1,
+                    '.',
+                    ''
+                )
+                : null,
+            'ratio' => empty($tweets)
+                ? null
+                : number_format($matchedCount * 100 / count($tweets), 1, '.', ''),
+            'lastMatchAgo' => time() - $lastMatchedAt >= 3600
+                ? (floor((time() - $lastMatchedAt) / 3600) . '時間')
+                : (floor((time() - $lastMatchedAt) / 60) . '分間'),
+        ];
+        return preg_replace_callback(
+            '/\{([[:alnum:]]+)\}/',
+            function ($match) use ($replace) {
+                return isset($replace[$match[1]])
+                    ? $replace[$match[1]]
+                    : $match[0];
+            },
+            $word->getFormat($matchedCount)
+        );
+    }
+
     // returns array<['text' => ..., 'at' => int]>
-    private function getTweetList()
+    private function getTweetList($twitterUserId)
     {
         $list = $this->getTwitterClient()->get(
             'statuses/user_timeline',
             [
-                'user_id' => $this->config->getTargetId(),
+                'user_id' => $twitterUserId,
                 'count' => 200,
                 'exclude_replies' => 'true',
                 'include_rts' => 'false',
@@ -71,7 +117,7 @@ class Application
             ]
         );
         if (!is_array($list) || empty($list)) {
-            throw new RuntimeError();
+            return [];
         }
         return array_map(
             function (\stdClass $tweet) {
@@ -90,11 +136,12 @@ class Application
 
     private function getTwitterClient()
     {
+        $tw = $this->config->getTwitterConfig();
         return new TwitterOAuth(
-            $this->config->getTwitterConsumerKey(),
-            $this->config->getTwitterConsumerSecret(),
-            $this->config->getTwitterUserToken(),
-            $this->config->getTwitterUserSecret()
+            $tw->getConsumerKey(),
+            $tw->getConsumerSecret(),
+            $tw->getUserToken(),
+            $tw->getUserSecret()
         );
     }
 }

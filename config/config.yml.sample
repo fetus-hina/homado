@@ -9,9 +9,13 @@ twitter:
 target:
     id: "949438177"
     words:
-        -
-            match: "/homo|[ホほ][モも]/ui"
-            format: "ちょまどさんは直近{totalCount}ツイート中{matchCount}ツイート、平均{avgMin}分ごとにホモとつぶやいています（ホモ率{ratio}%）"
-        -
-            match: "/美少女/"
-            format: "ちょまどさんは直近{totalCount}ツイート中{matchCount}ツイート、平均{avgMin}分ごとに美少女とつぶやいています（美少女率{ratio}%）"
+        -   match: "/homo|[ホほ][モも]/ui"
+            formats:
+                "0": null
+                "1": "ちょまどさんは最近{totalCount}ツイート中{matchCount}ツイート、ホモとつぶやいています（ホモ率{ratio%}）。{lastMatchAgo}間ホモとつぶやいていません。"
+                "*": "ちょまどさんは最近{totalCount}ツイート中{matchCount}ツイート、平均{avgMin}毎にホモとつぶやいています（ホモ率{ratio%}）。{lastMatchAgo}間ホモとつぶやいていません。"
+        -   match: "/美少女/"
+            formats:
+                "0": null
+                "1": "ちょまどさんは最近{totalCount}ツイート中{matchCount}ツイート、美少女とつぶやいています（美少女率{ratio%}）。{lastMatchAgo}間美少女とつぶやいていません。"
+                "*": "ちょまどさんは最近{totalCount}ツイート中{matchCount}ツイート、平均{avgMin}毎に美少女とつぶやいています（美少女率{ratio%}）。{lastMatchAgo}間美少女とつぶやいていません。"

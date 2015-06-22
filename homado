@@ -3,7 +3,7 @@
 namespace jp3cki\homado\bin;
 
 use jp3cki\homado\Application;
-use jp3cki\homado\Config;
+use jp3cki\homado\config\Config;
 
 require_once(__DIR__ . '/vendor/autoload.php');
 
